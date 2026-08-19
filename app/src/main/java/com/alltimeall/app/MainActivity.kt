@@ -16,6 +16,7 @@ import android.provider.MediaStore
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.webkit.*
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -35,10 +36,11 @@ class MainActivity : AppCompatActivity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var cameraImageUri: Uri? = null
     private var doubleBackToExitPressedOnce = false
+    private var isToolbarHidden = false
 
     private val targetUrl = "https://alltimeall.com"
+    private val loginUrl = "https://alltimeall.com/login"
 
-    // Launcher for file chooser & camera intent
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (filePathCallback == null) return@registerForActivityResult
@@ -59,6 +61,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable GPU Hardware Acceleration
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -66,16 +75,25 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.topAppBar)
         supportActionBar?.setDisplayShowTitleEnabled(true)
 
-        // Setup Back Button Callback
+        // Click top bar title "alltimeall.com" to navigate to Home page instantly
+        binding.topAppBar.setOnClickListener {
+            if (NetworkUtils.isNetworkAvailable(this)) {
+                binding.offlineContainer.visibility = View.GONE
+                binding.webView.visibility = View.VISIBLE
+                binding.webView.loadUrl(targetUrl)
+            }
+        }
+
+        // Setup Back Press Handler
         setupBackPressHandler()
 
-        // Setup UI Listeners
+        // Setup Listeners
         setupListeners()
 
-        // Initialize WebView
-        initWebView()
+        // Initialize WebView Engine
+        initWebViewEngine()
 
-        // Load Website or show Offline Screen
+        // Load Main Website
         loadMainWebsite()
     }
 
@@ -107,8 +125,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     @SuppressLint("SetJavaScriptEnabled")
-    private fun initWebView() {
+    private fun initWebViewEngine() {
         val webSettings = binding.webView.settings
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
@@ -118,17 +137,47 @@ class MainActivity : AppCompatActivity() {
         webSettings.loadWithOverviewMode = true
         webSettings.useWideViewPort = true
         webSettings.setSupportMultipleWindows(false)
-        webSettings.builtInZoomControls = false
-        webSettings.displayZoomControls = false
+        webSettings.saveFormData = true
+        webSettings.savePassword = true
+
+        // Cache mode for 0-second load time
+        webSettings.cacheMode = WebSettings.LOAD_DEFAULT
+        binding.webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             CookieManager.getInstance().setAcceptThirdPartyCookies(binding.webView, true)
+            CookieManager.getInstance().setAcceptCookie(true)
         }
 
-        // Custom User Agent
         val defaultUserAgent = webSettings.userAgentString
         webSettings.userAgentString = "$defaultUserAgent AllTimeAllAndroidApp/1.0"
+
+        // Smart Auto-Hiding Top Bar on Scroll
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            binding.webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+                val diff = scrollY - oldScrollY
+                if (diff > 12 && !isToolbarHidden && scrollY > 80) {
+                    isToolbarHidden = true
+                    binding.topAppBar.animate()
+                        .translationY(-binding.topAppBar.height.toFloat())
+                        .setDuration(220)
+                        .start()
+                } else if (diff < -12 && isToolbarHidden) {
+                    isToolbarHidden = false
+                    binding.topAppBar.animate()
+                        .translationY(0f)
+                        .setDuration(220)
+                        .start()
+                } else if (scrollY <= 10 && isToolbarHidden) {
+                    isToolbarHidden = false
+                    binding.topAppBar.animate()
+                        .translationY(0f)
+                        .setDuration(180)
+                        .start()
+                }
+            }
+        }
 
         binding.webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -140,6 +189,19 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 binding.progressIndicator.visibility = View.GONE
                 binding.swipeRefreshLayout.isRefreshing = false
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    CookieManager.getInstance().flush()
+                }
+            }
+
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                val url = request?.url?.toString() ?: return null
+                val cachedResponse = WebCacheInterceptor.interceptRequest(this@MainActivity, url)
+                return cachedResponse ?: super.shouldInterceptRequest(view, request)
             }
 
             override fun onReceivedError(
@@ -161,7 +223,6 @@ class MainActivity : AppCompatActivity() {
                 return handleExternalUrls(url)
             }
 
-            @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (url == null) return false
                 return handleExternalUrls(url)
@@ -192,7 +253,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Handle File Downloads
+        // File Downloads
         binding.webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
             try {
                 val request = DownloadManager.Request(Uri.parse(url))
@@ -220,7 +281,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleExternalUrls(url: String): Boolean {
-        // External intent handling for Phone calls, WhatsApp, Emails, bKash, Nagad, Maps
         if (url.startsWith("tel:") ||
             url.startsWith("mailto:") ||
             url.startsWith("whatsapp:") ||
@@ -338,6 +398,13 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            CookieManager.getInstance().flush()
+        }
+    }
+
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
@@ -345,6 +412,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_login -> {
+                if (NetworkUtils.isNetworkAvailable(this)) {
+                    binding.offlineContainer.visibility = View.GONE
+                    binding.webView.visibility = View.VISIBLE
+                    binding.webView.loadUrl(loginUrl)
+                } else {
+                    showOfflineScreen()
+                }
+                true
+            }
             R.id.action_refresh -> {
                 if (NetworkUtils.isNetworkAvailable(this)) {
                     binding.offlineContainer.visibility = View.GONE

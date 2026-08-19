@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">alltimeall</string>
+    <string name="app_name">alltimeall.com</string>
     <string name="website_url">https://alltimeall.com</string>
     
     <!-- UI Strings in Bengali & English -->
@@ -8,8 +8,8 @@
     <string name="no_internet_desc">আপনার ডিভাইসে ইন্টারনেট সংযোগ সক্রিয় আছে কিনা পরীক্ষা করুন এবং পুনরায় চেষ্টা করুন।</string>
     <string name="btn_retry">পুনরায় চেষ্টা করুন</string>
     
-    <string name="share_app_title">alltimeall অ্যাপ শেয়ার করুন</string>
-    <string name="share_app_text">বাংলাদেশের বিশ্বস্ত মাল্টি-ভেন্ডর মার্কেটপ্লেস alltimeall ব্যবহার করুন। ভিজিট করুন: https://alltimeall.com</string>
+    <string name="share_app_title">alltimeall.com অ্যাপ শেয়ার করুন</string>
+    <string name="share_app_text">বাংলাদেশের বিশ্বস্ত মাল্টি-ভেন্ডর মার্কেটপ্লেস alltimeall.com ব্যবহার করুন। ভিজিট করুন: https://alltimeall.com</string>
     
     <string name="exit_prompt">অ্যাপ থেকে বের হতে আবার চাপুন</string>
     <string name="file_chooser_title">ফাইল নির্বাচন বা ছবি তুলুন</string>
