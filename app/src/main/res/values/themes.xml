@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="Theme.AllTimeAll" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/brand_orange</item>
+        <item name="colorPrimaryVariant">@color/brand_orange_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">@color/status_bar_color</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- Background colors -->
+        <item name="android:windowBackground">@color/white</item>
+    </style>
+</resources>
